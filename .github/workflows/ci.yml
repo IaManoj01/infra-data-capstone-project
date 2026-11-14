@@ -1,4 +1,5 @@
-name: Solar Farm CI
+
+name: Solar Farm CI/CD
 
 # Run CI whenever code is pushed to main or a PR targets main.
 on:
@@ -9,7 +10,7 @@ on:
     branches:
       - main
 
-# Only read repository contents. No deployment credentials are needed for CI.
+# Only read repository contents. Deployment uses SSH secrets.
 permissions:
   contents: read
 
@@ -100,3 +101,90 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+
+
+  # ---------------------------------------
+  # 4. Deploy to AWS EC2
+  # ---------------------------------------
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+
+    # Deployment starts only after all three CI jobs succeed.
+    needs:
+      - backend
+      - python
+      - frontend
+
+    # Deploy only on a successful push to main, never on a PR.
+    if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      # Load the EC2 private key from GitHub Secrets.
+      - name: Load EC2 SSH private key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      # Configure the previously verified EC2 host key.
+      - name: Configure SSH known hosts
+        env:
+          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$EC2_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+          chmod 600 ~/.ssh/known_hosts
+
+      # Connect to EC2 and deploy the latest code.
+      - name: Deploy application to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          ssh -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes \
+              "$EC2_USER@$EC2_HOST" 'bash -s' <<'EOF'
+
+            set -euo pipefail
+
+            REPO="/home/ec2-user/solar-farm-repo"
+            LIVE="/home/ec2-user/solar-farm"
+
+            echo "Starting deployment..."
+
+            cd "$REPO"
+
+            echo "Fetching latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "Checking production configuration..."
+            test -f "$LIVE/.env.production"
+            test -f "$REPO/docker-compose.prod.yml"
+
+            echo "Checking persistent simulator data..."
+            test -L "$REPO/data-simulator/data"
+            test -d "$REPO/data-simulator/data"
+
+            echo "Building and starting production services..."
+
+            docker compose \
+              --project-directory "$REPO" \
+              --env-file "$LIVE/.env.production" \
+              -f "$REPO/docker-compose.prod.yml" \
+              up -d --build
+
+            echo "Checking deployed services..."
+
+            docker compose \
+              --project-directory "$REPO" \
+              --env-file "$LIVE/.env.production" \
+              -f "$REPO/docker-compose.prod.yml" \
+              ps
+
+            echo "Deployment completed successfully."
+
+          EOF
