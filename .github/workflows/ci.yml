@@ -1,0 +1,102 @@
+name: Solar Farm CI
+
+# Run CI whenever code is pushed to main or a PR targets main.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# Only read repository contents. No deployment credentials are needed for CI.
+permissions:
+  contents: read
+
+jobs:
+
+  # ---------------------------------------
+  # 1. Spring Boot Backend
+  # ---------------------------------------
+  backend:
+    name: Spring Boot Build and Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/solar-farm-service/pom.xml
+
+      - name: Make Maven Wrapper executable
+        working-directory: backend/solar-farm-service
+        run: chmod +x mvnw
+
+      - name: Build and run backend tests
+        working-directory: backend/solar-farm-service
+        run: ./mvnw -B clean verify
+
+
+  # ---------------------------------------
+  # 2. Python Data Simulator
+  # ---------------------------------------
+  python:
+    name: Python Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: data-simulator/requirements.txt
+
+      - name: Install Python dependencies
+        working-directory: data-simulator
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run Python tests
+        working-directory: data-simulator
+        env:
+          PYTHONPATH: src
+        run: python -m pytest tests/ -v
+
+
+  # ---------------------------------------
+  # 3. React Frontend
+  # ---------------------------------------
+  frontend:
+    name: React Frontend Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
