@@ -1,0 +1,123 @@
+# services:
+#   mysql-db:
+#     image: mysql:8.0
+#     container_name: solarfarm-mysql
+#     restart: always
+#     environment:
+#       MYSQL_DATABASE: solarfarm_db
+#       MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in the root .env file}
+#     ports:
+#       - "3306:3306"
+#     volumes:
+#       - mysql_data:/var/lib/mysql
+#     healthcheck:
+#       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+
+#   spring-boot:
+#     build:
+#       context: ./backend/solar-farm-service
+#     container_name: solarfarm-springboot
+#     restart: on-failure
+#     depends_on:
+#       mysql-db:
+#         condition: service_healthy
+#     environment:
+#       DB_HOST: mysql-db
+#       MYSQL_USER: root
+#       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in the root .env file}
+#     ports:
+#       - "8080:8080"
+
+#   python-scheduler:
+#     build:
+#       context: ./data-simulator
+#     container_name: solarfarm-python
+#     restart: always
+#     depends_on:
+#       mysql-db:
+#         condition: service_healthy
+#       spring-boot:
+#         condition: service_started
+#     environment:
+#       MYSQL_HOST: mysql-db
+#       MYSQL_PORT: "3306"
+#       MYSQL_USER: root
+#       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in the root .env file}
+#       MYSQL_DB: solarfarm_db
+#       SPRING_BOOT_HOST: spring-boot
+#       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?Set AWS_ACCESS_KEY_ID in the root .env file}
+#       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?Set AWS_SECRET_ACCESS_KEY in the root .env file}
+#       AWS_REGION: ${AWS_REGION:-ap-south-1}
+#       S3_BUCKET_NAME: ${S3_BUCKET_NAME:?Set S3_BUCKET_NAME in the root .env file}
+#     volumes:
+#       - ./data-simulator/data:/app/data
+
+# volumes:
+#   mysql_data:
+
+
+
+
+
+
+
+services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: solarfarm-mysql
+    restart: always
+
+    environment:
+      MYSQL_DATABASE: solarfarm_db
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in the root .env file}
+
+    ports:
+      - "3306:3306"
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  python-scheduler:
+    build:
+      context: ./data-simulator
+
+    container_name: solarfarm-python
+    restart: unless-stopped
+
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+
+    environment:
+      MYSQL_HOST: mysql-db
+      MYSQL_PORT: "3306"
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in the root .env file}
+      MYSQL_DB: solarfarm_db
+
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?Set AWS_ACCESS_KEY_ID in the root .env file}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?Set AWS_SECRET_ACCESS_KEY in the root .env file}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:?Set S3_BUCKET_NAME in the root .env file}
+
+      PIPELINE_INTERVAL_SECONDS: 300
+
+    volumes:
+      - ./data-simulator/data:/app/data
+
+volumes:
+  mysql_data:

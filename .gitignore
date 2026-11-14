@@ -1,0 +1,57 @@
+
+# ==========================================
+# Environment variables and secrets
+# ==========================================
+.env
+.env.*
+!.env.example
+!frontend/.env.production
+
+# ==========================================
+# Python
+# ==========================================
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Generated simulator data and checkpoints
+data-simulator/data/
+
+# ==========================================
+# Java / Maven
+# ==========================================
+**/target/
+*.class
+
+# ==========================================
+# Node.js / Frontend
+# ==========================================
+node_modules/
+dist/
+coverage/
+npm-debug.log*
+
+# ==========================================
+# IDE and editor files
+# ==========================================
+.idea/
+.vscode/
+*.iml
+
+# ==========================================
+# Operating system
+# ==========================================
+.DS_Store
+Thumbs.db
+
+# ==========================================
+# Logs and temporary files
+# ==========================================
+*.log
+*.tmp
+
+# Database backups
+*.sql

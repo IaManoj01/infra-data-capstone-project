@@ -1,0 +1,75 @@
+
+services:
+
+  spring-boot:
+    build:
+      context: ./backend/solar-farm-service
+
+    container_name: solarfarm-springboot
+    restart: unless-stopped
+
+    environment:
+      DB_HOST: ${DB_HOST:?Set DB_HOST in .env.production}
+      DB_SSL_MODE: REQUIRED
+      MYSQL_USER: ${MYSQL_USER:?Set MYSQL_USER in .env.production}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env.production}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+
+    expose:
+      - "8080"
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8080/actuator/health || exit 1"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+
+  python-scheduler:
+    build:
+      context: ./data-simulator
+
+    container_name: solarfarm-python
+    restart: unless-stopped
+
+    depends_on:
+      spring-boot:
+        condition: service_healthy
+
+    environment:
+      MYSQL_HOST: ${DB_HOST:?Set DB_HOST in .env.production}
+      MYSQL_PORT: "3306"
+      MYSQL_USER: ${MYSQL_USER:?Set MYSQL_USER in .env.production}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env.production}
+      MYSQL_DB: solarfarm_db
+
+      ETL_API_URL: http://spring-boot:8080/api/etl/run
+
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:?Set S3_BUCKET_NAME in .env.production}
+
+      PIPELINE_INTERVAL_SECONDS: "300"
+
+    volumes:
+      - ./data-simulator/data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    container_name: solarfarm-frontend
+    restart: unless-stopped
+
+    ports:
+      - "80:80"
+
+    depends_on:
+      spring-boot:
+        condition: service_healthy
+

@@ -1,0 +1,17 @@
+# Maven build output
+target/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# Git
+.git/
+
+# Environment variables and secrets
+.env
+.env.*
+
+# Logs
+*.log
