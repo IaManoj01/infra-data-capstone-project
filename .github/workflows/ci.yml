@@ -166,8 +166,8 @@ jobs:
             test -f "$REPO/docker-compose.prod.yml"
 
             echo "Checking persistent simulator data..."
-            test -L "$REPO/data-simulator/data"
             test -d "$REPO/data-simulator/data"
+            test ! -L "$REPO/data-simulator/data"
 
             echo "Building and starting production services..."
 
